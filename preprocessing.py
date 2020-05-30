@@ -5,7 +5,7 @@ from scapy.all import rdpcap,IP,TCP,UDP
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 import numpy as np
-from sklearn.mixture import GaussianMixture
+from sklearn.ensemble import IsolationForest
 
 def main():
   
@@ -30,35 +30,13 @@ def main():
 
     # Fill NaN
     df = df.fillna(df.mean())
-    
-    # Clustering in order to define the two categories
-    X = np.array(df)
-    gmm = GaussianMixture(n_components=2).fit(X)
-    labels = gmm.predict(X)
-    
-    # Add the labels to the dataset
-    df['label'] = pd.Series(labels)
-    
-    # Count the ones and zeros to identify which class if the elephant flow
-    ones = np.array(df.loc[df['label'] == 1])
-    onesSum = np.sum(ones[:,3])
-    zeros = np.array(df.loc[df['label'] == 0])
-    zeroSum = np.sum(zeros[:,3])
 
-    # Label the data
-    if onesSum >= zeroSum:
-        label_map = {
-            0:"mice_flow",
-            1:"elephant_flow"
-        }
-        df['label'] = df['label'].map(label_map)
-    else:
-        label_map = {
-            0:"elephant_flow",
-            1:"mice_flow",
-        }
-        df['label'] = df['label'].map(label_map)
+    # Use the isolation forest to find the anomalies -1: anomaly 1:normal 
+    anomalies_ratio = 0.09
+    clf = IsolationForest(n_estimators = 100, max_samples = 10, contamination = anomalies_ratio, behaviour='new')
+    clf.fit(df)
     
+    df['label']=clf.predict(df) 
     df.to_csv('./processed_csv/'+'processed_'+cv)
 
 if __name__ == "__main__":
