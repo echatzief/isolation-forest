@@ -4,6 +4,8 @@ from progress.bar import Bar
 from scapy.all import rdpcap,IP,TCP,UDP
 import pandas as pd
 from progress.bar import Bar
+from ExtraFeatures import *
+
 
 def main():
   # Read all the pcap files
@@ -23,6 +25,10 @@ def main():
     udp_fields = [field.name for field in UDP().fields_desc]
     dataframe_fields = ip_fields + ['time'] + tcp_fields
     dataframe_fields = dataframe_fields + ['land']
+    dataframe_fields = dataframe_fields + ["Avg_syn_flag", "Avg_urg_flag", "Avg_fin_flag", "Avg_ack_flag", "Avg_psh_flag", "Avg_rst_flag", "Avg_DNS_pkt", \
+      "Avg_TCP_pkt","Avg_UDP_pkt", "Avg_ICMP_pkt", "Duration_window_flow", "Avg_delta_time", "Min_delta_time", "Max_delta_time", "StDev_delta_time",
+      "Avg_pkts_lenght", "Min_pkts_lenght", "Max_pkts_lenght", "StDev_pkts_lenght", "Avg_small_payload_pkt", "Avg_payload", "Min_payload",
+      "Max_payload", "StDev_payload", "Avg_DNS_over_TCP"]
 
     dataframe_fields_after = ip_fields + ['time'] + tcp_fields + ['land']
     dataframe_fields_after[dataframe_fields_after.index('flags')] = "ip_flags"
@@ -31,10 +37,16 @@ def main():
     dataframe_fields_after[dataframe_fields_after.index('chksum')] = "tcp_udp_chksum"
     dataframe_fields_after[dataframe_fields_after.index('options')] = "ip_options"
     dataframe_fields_after[dataframe_fields_after.index('options')] = "tcp_udp_options"
+    dataframe_fields_after = dataframe_fields_after + ["Avg_syn_flag", "Avg_urg_flag", "Avg_fin_flag", "Avg_ack_flag", "Avg_psh_flag", "Avg_rst_flag", 
+      "Avg_DNS_pkt","Avg_TCP_pkt","Avg_UDP_pkt", "Avg_ICMP_pkt", "Duration_window_flow", "Avg_delta_time", "Min_delta_time", "Max_delta_time", 
+      "StDev_delta_time","Avg_pkts_lenght", "Min_pkts_lenght", "Max_pkts_lenght", "StDev_pkts_lenght", "Avg_small_payload_pkt", "Avg_payload", "Min_payload",
+      "Max_payload", "StDev_payload", "Avg_DNS_over_TCP"]
+
 
     # Create the dataframe with the data
     df = pd.DataFrame(columns=dataframe_fields)
-
+    
+    pkts = []
     for packet in pcap[IP]:
       # Field array for each row of DataFrame
       field_values = []
@@ -63,7 +75,17 @@ def main():
         field_values.append(1)
       else:
         field_values.append(0)
+      
+      pkts.append(packet)
+      
+      # Append the extra features
+      fc = ExtraFeatures()
+      extraF = fc.compute_features(pkts)
+      
+      for it in extraF:
+        field_values.append(it)       
 
+      
       df_append = pd.DataFrame([field_values], columns=dataframe_fields)
       df = pd.concat([df, df_append], axis=0)
     
