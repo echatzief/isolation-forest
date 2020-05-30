@@ -31,6 +31,7 @@ def main():
     outfile = str(args.out)
 
   # Capture packets
+  print("Started Capturing...")
   pkts = sniff(filter=filt,iface=args.iface,timeout=100)
   wrpcap(outfile, pkts)
 
