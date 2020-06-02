@@ -5,13 +5,26 @@ from scapy.all import rdpcap,IP,TCP,UDP
 import pandas as pd
 from progress.bar import Bar
 from ExtraFeatures import *
+import argparse,os
 
 
 def main():
   # Read all the pcap files
-  pcapPath = "./pcap_files"
-  pcapFiles = [f for f in listdir(pcapPath) if isfile(join(pcapPath, f))]
 
+  parser = argparse.ArgumentParser(description='Packet sniffer')
+  parser.add_argument('--type',type=str,help='Type of use')
+  args = parser.parse_args()
+
+  if not args.type:
+    print('--type required')
+    os._exit(-1)
+
+  if(args.type == 'train'):
+    pcapPath = "./pcap_files"
+    pcapFiles = [f for f in listdir(pcapPath) if isfile(join(pcapPath, f))]
+  else:
+    pcapPath = "./pcap_test"
+    pcapFiles = [f for f in listdir(pcapPath) if isfile(join(pcapPath, f))]
   for p in pcapFiles:
 
     # Read the current pcap
@@ -24,13 +37,13 @@ def main():
     tcp_fields = [field.name for field in TCP().fields_desc]
     udp_fields = [field.name for field in UDP().fields_desc]
     dataframe_fields = ip_fields + ['time'] + tcp_fields
-    dataframe_fields = dataframe_fields + ['land']
+    dataframe_fields = dataframe_fields + ['land'] + ['time_diff']
     dataframe_fields = dataframe_fields + ["Avg_syn_flag", "Avg_urg_flag", "Avg_fin_flag", "Avg_ack_flag", "Avg_psh_flag", "Avg_rst_flag", "Avg_DNS_pkt", \
       "Avg_TCP_pkt","Avg_UDP_pkt", "Avg_ICMP_pkt", "Duration_window_flow", "Avg_delta_time", "Min_delta_time", "Max_delta_time", "StDev_delta_time",
       "Avg_pkts_lenght", "Min_pkts_lenght", "Max_pkts_lenght", "StDev_pkts_lenght", "Avg_small_payload_pkt", "Avg_payload", "Min_payload",
       "Max_payload", "StDev_payload", "Avg_DNS_over_TCP"]
 
-    dataframe_fields_after = ip_fields + ['time'] + tcp_fields + ['land']
+    dataframe_fields_after = ip_fields + ['time'] + tcp_fields + ['land']+['time_diff']
     dataframe_fields_after[dataframe_fields_after.index('flags')] = "ip_flags"
     dataframe_fields_after[dataframe_fields_after.index('flags')] = "tcp_udp_flags"
     dataframe_fields_after[dataframe_fields_after.index('chksum')] = "ip_chksum"
@@ -45,8 +58,12 @@ def main():
 
     # Create the dataframe with the data
     df = pd.DataFrame(columns=dataframe_fields)
+
+    #print(df.head())
+    #os._exit(1);
     
     pkts = []
+    prevDiff = 0
     for packet in pcap[IP]:
       # Field array for each row of DataFrame
       field_values = []
@@ -76,6 +93,12 @@ def main():
       else:
         field_values.append(0)
       
+      # time diff option
+      if len(pkts) > 0:
+        field_values.append(field_values[13]-prevDiff)
+      else:
+        field_values.append(0.0)
+      prevDiff = field_values[13]
       pkts.append(packet)
       
       # Append the extra features
@@ -85,9 +108,10 @@ def main():
       for it in extraF:
         field_values.append(it)       
 
-      
-      df_append = pd.DataFrame([field_values], columns=dataframe_fields)
-      df = pd.concat([df, df_append], axis=0)
+      # Take the second packet and so on
+      if(len(pkts)>1):
+        df_append = pd.DataFrame([field_values], columns=dataframe_fields)
+        df = pd.concat([df, df_append], axis=0)
     
     
     # Reset Index
@@ -95,8 +119,13 @@ def main():
     df = df.reset_index()
 
     # Drop old index column
-    df = df.drop(columns=["index","src","dst","id","ip_chksum","seq","ack","tcp_udp_chksum"])
-    df.to_csv('./csv_files/'+p+'.csv',index=False)
+    if(args.type == 'train'):
+      df = df.drop(columns=["index","src","dst","id","ip_chksum","seq","ack","tcp_udp_chksum"])
+      df.to_csv('./csv_files/'+p+'.csv',index=False)
+    else:
+      df = df.drop(columns=["index","src","dst","id","ip_chksum","seq","ack","tcp_udp_chksum"])
+      df.to_csv('./test_csv/'+p+'.csv',index=False)
+
 
 if __name__ == '__main__':
   main()
